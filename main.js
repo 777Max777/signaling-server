@@ -54,9 +54,13 @@ function initEditor(roomName) {
 
   console.log('WebRTC provider created')
 
+  // Log all provider events
+  console.log('Available provider events:', Object.keys(provider))
+
   // Update connection status
   provider.on('status', event => {
     const statusEl = document.getElementById('status')
+    console.log('Status event:', event)
     if (event.connected) {
       statusEl.textContent = 'Connected'
       statusEl.className = 'connected'
@@ -133,11 +137,25 @@ function initEditor(roomName) {
 
   // Setup chat
   chatArray.observe(event => {
-    console.log('Chat array changed:', event)
+    console.log('Chat array changed:', {
+      changes: event.changes,
+      transaction: event.transaction.origin,
+      arrayLength: chatArray.length
+    })
     renderChat(chatArray)
   })
 
   console.log('Initial chat array length:', chatArray.length)
+
+  // Log when document updates
+  ydoc.on('update', (update, origin) => {
+    console.log('Yjs document updated:', {
+      updateSize: update.length,
+      origin: origin,
+      chatLength: chatArray.length,
+      textLength: ytext.length
+    })
+  })
 
   // Chat input handler
   const chatInput = document.getElementById('chat-input')
