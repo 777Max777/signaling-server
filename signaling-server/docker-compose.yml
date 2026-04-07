@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  signaling-server:
+    build: .
+    container_name: y-webrtc-signaling
+    restart: unless-stopped
+    ports:
+      - "4444:4444"
+    environment:
+      - NODE_ENV=production
+      - PORT=4444
+      - HOST=0.0.0.0
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:4444"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - webrtc-network
+
+networks:
+  webrtc-network:
+    driver: bridge
