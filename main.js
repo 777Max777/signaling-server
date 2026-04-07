@@ -1,6 +1,6 @@
 import * as Y from 'yjs'
 import { WebrtcProvider } from 'y-webrtc'
-import { EditorView, basicSetup } from 'codemirror'
+import { EditorView, basicSetup } from '@codemirror/basic-setup'
 import { EditorState } from '@codemirror/state'
 import { yCollab } from 'y-codemirror.next'
 
@@ -28,7 +28,7 @@ function initEditor(roomName) {
 
   // Setup WebRTC provider
   provider = new WebrtcProvider(roomName, ydoc, {
-    signaling: ['wss://signaling.yjs.dev'],
+    signaling: ['wss://localhost:4444'],
     password: null,
     awareness: {
       name: userName,
@@ -74,16 +74,24 @@ function initEditor(roomName) {
 
   // Chat input handler
   const chatInput = document.getElementById('chat-input')
-  chatInput.onkeypress = (e) => {
-    if (e.key === 'Enter' && chatInput.value.trim()) {
+  const sendMessage = () => {
+    const text = chatInput.value.trim()
+    if (text) {
       chatArray.push([{
         author: userName,
-        text: chatInput.value,
+        text: text,
         time: Date.now()
       }])
       chatInput.value = ''
     }
   }
+
+  chatInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      sendMessage()
+    }
+  })
 
   renderChat(chatArray)
 }
