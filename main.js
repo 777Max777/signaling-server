@@ -28,7 +28,7 @@ function initEditor(roomName) {
 
   // Setup WebRTC provider
   provider = new WebrtcProvider(roomName, ydoc, {
-    signaling: ['wss://localhost:4444'],
+    signaling: ['ws://localhost:4444'],
     password: null,
     awareness: {
       name: userName,
@@ -74,6 +74,8 @@ function initEditor(roomName) {
 
   // Chat input handler
   const chatInput = document.getElementById('chat-input')
+  const sendBtn = document.getElementById('send-btn')
+
   const sendMessage = () => {
     const text = chatInput.value.trim()
     if (text) {
@@ -86,12 +88,22 @@ function initEditor(roomName) {
     }
   }
 
-  chatInput.addEventListener('keypress', (e) => {
+  // Remove old listeners
+  const newChatInput = chatInput.cloneNode(true)
+  chatInput.parentNode.replaceChild(newChatInput, chatInput)
+
+  newChatInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
       e.preventDefault()
       sendMessage()
     }
   })
+
+  if (sendBtn) {
+    const newSendBtn = sendBtn.cloneNode(true)
+    sendBtn.parentNode.replaceChild(newSendBtn, sendBtn)
+    newSendBtn.addEventListener('click', sendMessage)
+  }
 
   renderChat(chatArray)
 }
