@@ -70,9 +70,24 @@ function initEditor(roomName) {
 
   // Update peer count
   provider.on('peers', event => {
-    const peerCount = event.webrtcPeers.length + event.bcPeers.length
+    const webrtcPeers = event.webrtcPeers || []
+    const bcPeers = event.bcPeers || []
+    const peerCount = webrtcPeers.length + bcPeers.length
+
     document.getElementById('peers').textContent = `Peers: ${peerCount}`
-    console.log('Peers updated:', peerCount)
+    console.log('Peers updated:', {
+      webrtcPeers: webrtcPeers.length,
+      bcPeers: bcPeers.length,
+      total: peerCount,
+      webrtcConnected: event.webrtcPeers,
+      added: event.added,
+      removed: event.removed
+    })
+  })
+
+  // Log WebRTC connection events
+  provider.on('connection', () => {
+    console.log('WebRTC connection established!')
   })
 
   // Update on sync
