@@ -88,16 +88,25 @@ function initEditor(roomName) {
     const bcPeers = event.bcPeers || []
     const peerCount = webrtcPeers.length + bcPeers.length
 
-    document.getElementById('peers').textContent = `Peers: ${peerCount}`
-    console.log('Peers updated:', {
-      webrtcPeers: webrtcPeers.length,
-      bcPeers: bcPeers.length,
-      total: peerCount,
-      webrtcConnected: event.webrtcPeers,
-      added: event.added,
-      removed: event.removed
-    })
+    document.getElementById('peers').textContent = `Peers: ${peerCount} (WebRTC: ${webrtcPeers.length}, BC: ${bcPeers.length})`
+    console.log('=== PEERS EVENT ===')
+    console.log('WebRTC peers:', webrtcPeers.length, webrtcPeers)
+    console.log('BroadcastChannel peers:', bcPeers.length, bcPeers)
+    console.log('Total:', peerCount)
+    console.log('Added:', event.added)
+    console.log('Removed:', event.removed)
+    console.log('==================')
   })
+
+  // Check room state periodically
+  setInterval(() => {
+    console.log('Room state check:', {
+      room: roomName,
+      connected: provider.connected,
+      webrtcConns: provider.room?.webrtcConns?.size || 0,
+      bcConns: provider.room?.bcConns?.size || 0
+    })
+  }, 5000)
 
   // Log WebRTC connection events
   provider.on('connection', () => {
