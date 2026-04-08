@@ -61,31 +61,33 @@ wss.on('connection', (conn, req) => {
       return
     }
 
+    const uint8Message = new Uint8Array(message)
     const encoder = encoding.createEncoder()
-    const decoder = decoding.createDecoder(new Uint8Array(message))
+    const decoder = decoding.createDecoder(uint8Message)
     const messageType = decoding.readVarUint(decoder)
 
     switch (messageType) {
       case messageSync:
         encoding.writeVarUint(encoder, messageSync)
         syncProtocol.readSyncMessage(decoder, encoder, doc, conn)
-        if (encoding.length(encoder) > 1) {
-          const syncMessage = encoding.toUint8Array(encoder)
-          conn.send(syncMessage)
 
-          // Broadcast to all other clients in the same doc
-          connections.forEach(client => {
-            if (client !== conn && client.readyState === WebSocket.OPEN) {
-              client.send(syncMessage)
-            }
-          })
+        // Send response to sender
+        if (encoding.length(encoder) > 1) {
+          conn.send(encoding.toUint8Array(encoder))
         }
+
+        // Broadcast original message to all other clients
+        connections.forEach(client => {
+          if (client !== conn && client.readyState === WebSocket.OPEN) {
+            client.send(uint8Message)
+          }
+        })
         break
       case messageAwareness:
         // Broadcast awareness to all other clients in the same doc
         connections.forEach(client => {
           if (client !== conn && client.readyState === WebSocket.OPEN) {
-            client.send(message)
+            client.send(uint8Message)
           }
         })
         break
