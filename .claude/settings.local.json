@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Bash(rm:*)",
+      "Bash(mv Dockerfile.y-websocket Dockerfile)",
+      "Bash(mv docker-compose.y-websocket.yml docker-compose.yml)",
+      "Bash(mv package-y-websocket.json package.json)",
+      "Bash(mv y-websocket-server.js server.js)"
+    ]
+  }
+}

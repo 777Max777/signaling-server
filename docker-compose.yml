@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  server:
+    build: ./signaling-server
+    container_name: yjs-server
+    restart: unless-stopped
+    ports:
+      - "1234:1234"
+    environment:
+      - NODE_ENV=production
+    networks:
+      - yjs-network
+
+  client:
+    build: .
+    container_name: yjs-client
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - server
+    networks:
+      - yjs-network
+
+networks:
+  yjs-network:
+    driver: bridge

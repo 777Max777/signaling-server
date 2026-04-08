@@ -1,93 +1,111 @@
-#!/usr/bin/env node
-
-/**
- * WebSocket signaling server for y-webrtc
- * Based on y-websocket signaling implementation
- */
-
 const WebSocket = require('ws')
 const http = require('http')
-const url = require('url')
+const Y = require('yjs')
+const syncProtocol = require('y-protocols/sync')
+const encoding = require('lib0/encoding')
+const decoding = require('lib0/decoding')
+const map = require('lib0/map')
 
-const port = process.env.PORT || 4444
+const port = process.env.PORT || 1234
 const host = process.env.HOST || '0.0.0.0'
+
+const docs = new Map()
+const docConnections = new Map()
+
+const messageSync = 0
+const messageAwareness = 1
+
+const getYDoc = (docname) => map.setIfUndefined(docs, docname, () => {
+  const doc = new Y.Doc()
+  doc.gc = true
+  docConnections.set(docname, new Set())
+  return doc
+})
 
 const server = http.createServer((request, response) => {
   response.writeHead(200, { 'Content-Type': 'text/plain' })
-  response.end('WebRTC Signaling Server')
+  response.end('Y-WebSocket Server')
 })
 
 const wss = new WebSocket.Server({ server })
 
-// Store rooms and their connections
-const rooms = new Map()
+const broadcastPeerCount = (docName) => {
+  const connections = docConnections.get(docName)
+  if (!connections) return
 
-function getRoom(roomName) {
-  if (!rooms.has(roomName)) {
-    rooms.set(roomName, new Set())
-  }
-  return rooms.get(roomName)
+  const peerCount = connections.size
+  const message = JSON.stringify({ type: 'peer-count', count: peerCount })
+
+  connections.forEach(conn => {
+    if (conn.readyState === WebSocket.OPEN) {
+      conn.send(message)
+    }
+  })
 }
 
-wss.on('connection', (ws, request) => {
-  const params = url.parse(request.url, true).query
-  const roomName = params.room || 'default'
+wss.on('connection', (conn, req) => {
+  const docName = req.url.slice(1).split('?')[0]
+  const doc = getYDoc(docName)
+  const connections = docConnections.get(docName)
 
-  const room = getRoom(roomName)
-  room.add(ws)
+  connections.add(conn)
+  console.log(`[${new Date().toISOString()}] Client connected to doc: ${docName} (${connections.size} peers)`)
 
-  console.log(`[${new Date().toISOString()}] Client connected to room: ${roomName} (${room.size} peers)`)
+  broadcastPeerCount(docName)
 
-  // Send current peer count
-  ws.send(JSON.stringify({
-    type: 'peers',
-    count: room.size - 1
-  }))
+  conn.on('message', (message) => {
+    if (typeof message === 'string') return
 
-  ws.on('message', (message) => {
-    // Broadcast message to all other peers in the room
-    room.forEach(client => {
-      if (client !== ws && client.readyState === WebSocket.OPEN) {
-        client.send(message)
-      }
-    })
-  })
+    const uint8Message = new Uint8Array(message)
+    const encoder = encoding.createEncoder()
+    const decoder = decoding.createDecoder(uint8Message)
+    const messageType = decoding.readVarUint(decoder)
 
-  ws.on('close', () => {
-    room.delete(ws)
-    console.log(`[${new Date().toISOString()}] Client disconnected from room: ${roomName} (${room.size} peers)`)
+    switch (messageType) {
+      case messageSync:
+        encoding.writeVarUint(encoder, messageSync)
+        syncProtocol.readSyncMessage(decoder, encoder, doc, conn)
 
-    // Clean up empty rooms
-    if (room.size === 0) {
-      rooms.delete(roomName)
+        if (encoding.length(encoder) > 1) {
+          conn.send(encoding.toUint8Array(encoder))
+        }
+
+        connections.forEach(client => {
+          if (client !== conn && client.readyState === WebSocket.OPEN) {
+            client.send(uint8Message)
+          }
+        })
+        break
+      case messageAwareness:
+        connections.forEach(client => {
+          if (client !== conn && client.readyState === WebSocket.OPEN) {
+            client.send(uint8Message)
+          }
+        })
+        break
     }
-
-    // Notify remaining peers
-    room.forEach(client => {
-      if (client.readyState === WebSocket.OPEN) {
-        client.send(JSON.stringify({
-          type: 'peers',
-          count: room.size - 1
-        }))
-      }
-    })
   })
 
-  ws.on('error', (error) => {
-    console.error(`[${new Date().toISOString()}] WebSocket error:`, error)
+  const encoder = encoding.createEncoder()
+  encoding.writeVarUint(encoder, messageSync)
+  syncProtocol.writeSyncStep1(encoder, doc)
+  conn.send(encoding.toUint8Array(encoder))
+
+  conn.on('close', () => {
+    connections.delete(conn)
+    console.log(`[${new Date().toISOString()}] Client disconnected from doc: ${docName} (${connections.size} peers)`)
+
+    broadcastPeerCount(docName)
+
+    if (connections.size === 0) {
+      docs.delete(docName)
+      docConnections.delete(docName)
+    }
   })
 })
 
 server.listen(port, host, () => {
-  console.log(`WebRTC Signaling Server running on ws://${host}:${port}`)
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`)
+  console.log(`Y-WebSocket Server running on ws://${host}:${port}`)
 })
 
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received, closing server...')
-  server.close(() => {
-    console.log('Server closed')
-    process.exit(0)
-  })
-})
+
