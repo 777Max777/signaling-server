@@ -40,6 +40,19 @@ function initEditor(roomName) {
   // Setup WebSocket provider (more reliable than  WebRTC for local network)
   provider = new WebsocketProvider('ws://localhost:1234', roomName, ydoc)
 
+  // Listen for custom peer count messages
+  provider.ws.addEventListener('message', (event) => {
+    try {
+      const data = JSON.parse(event.data)
+      if (data.type === 'peer-count') {
+        document.getElementById('peers').textContent = `Peers: ${data.count - 1}`
+        console.log('Peer count updated:', data.count - 1)
+      }
+    } catch (e) {
+      // Not a JSON message, ignore
+    }
+  })
+
   console.log('WebSocket provider created')
 
   // Log all provider events
@@ -60,8 +73,8 @@ function initEditor(roomName) {
     }
   })
 
-  // WebsocketProvider doesn't have 'peers' event, remove peer count feature
-  document.getElementById('peers').textContent = 'Peers: N/A (WebSocket mode)'
+  // WebsocketProvider peer count will be updated via custom messages
+  document.getElementById('peers').textContent = 'Peers: 0'
 
   // Update on sync
   provider.on('sync', (isSynced) => {
