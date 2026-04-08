@@ -1,5 +1,5 @@
 import * as Y from 'yjs'
-import { WebrtcProvider } from 'y-webrtc'
+import { WebsocketProvider } from 'y-websocket'
 
 let ydoc = null
 let provider = null
@@ -37,30 +37,8 @@ function initEditor(roomName) {
 
   console.log('Yjs document created')
 
-  // Setup WebRTC provider
-  provider = new WebrtcProvider(roomName, ydoc, {
-    signaling: ['ws://localhost:4444'],
-    password: null,
-    peerOpts: {
-      config: {
-        iceServers: [
-          { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:stun1.l.google.com:19302' },
-          {
-            urls: 'turn:openrelay.metered.ca:80',
-            username: 'openrelayproject',
-            credential: 'openrelayproject'
-          },
-          {
-            urls: 'turn:openrelay.metered.ca:443',
-            username: 'openrelayproject',
-            credential: 'openrelayproject'
-          }
-        ]
-      },
-      debug: 2  // Enable debug logging
-    }
-  })
+  // Setup WebSocket provider (more reliable than  WebRTC for local network)
+  provider = new WebsocketProvider('ws://localhost:1234', roomName, ydoc)
 
   console.log('WebRTC provider created')
 
