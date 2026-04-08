@@ -40,7 +40,7 @@ function initEditor(roomName) {
   // Setup WebSocket provider (more reliable than  WebRTC for local network)
   provider = new WebsocketProvider('ws://localhost:1234', roomName, ydoc)
 
-  console.log('WebRTC provider created')
+  console.log('WebSocket provider created')
 
   // Log all provider events
   console.log('Available provider events:', Object.keys(provider))
@@ -49,51 +49,23 @@ function initEditor(roomName) {
   provider.on('status', event => {
     const statusEl = document.getElementById('status')
     console.log('Status event:', event)
-    if (event.connected) {
+    if (event.status === 'connected') {
       statusEl.textContent = 'Connected'
       statusEl.className = 'connected'
-      console.log('Connected to signaling server')
+      console.log('Connected to WebSocket server')
     } else {
       statusEl.textContent = 'Disconnected'
       statusEl.className = 'disconnected'
-      console.log('Disconnected from signaling server')
+      console.log('Disconnected from WebSocket server')
     }
   })
 
-  // Update peer count
-  provider.on('peers', event => {
-    const webrtcPeers = event.webrtcPeers || []
-    const bcPeers = event.bcPeers || []
-    const peerCount = webrtcPeers.length + bcPeers.length
-
-    document.getElementById('peers').textContent = `Peers: ${peerCount} (WebRTC: ${webrtcPeers.length}, BC: ${bcPeers.length})`
-    console.log('=== PEERS EVENT ===')
-    console.log('WebRTC peers:', webrtcPeers.length, webrtcPeers)
-    console.log('BroadcastChannel peers:', bcPeers.length, bcPeers)
-    console.log('Total:', peerCount)
-    console.log('Added:', event.added)
-    console.log('Removed:', event.removed)
-    console.log('==================')
-  })
-
-  // Check room state periodically
-  setInterval(() => {
-    console.log('Room state check:', {
-      room: roomName,
-      connected: provider.connected,
-      webrtcConns: provider.room?.webrtcConns?.size || 0,
-      bcConns: provider.room?.bcConns?.size || 0
-    })
-  }, 5000)
-
-  // Log WebRTC connection events
-  provider.on('connection', () => {
-    console.log('WebRTC connection established!')
-  })
+  // WebsocketProvider doesn't have 'peers' event, remove peer count feature
+  document.getElementById('peers').textContent = 'Peers: N/A (WebSocket mode)'
 
   // Update on sync
-  provider.on('synced', () => {
-    console.log('Provider synced')
+  provider.on('sync', (isSynced) => {
+    console.log('Provider synced:', isSynced)
   })
 
   // Setup simple textarea editor
