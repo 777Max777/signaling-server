@@ -1,9 +1,25 @@
 version: '3.8'
 
 services:
+  signaling-server:
+    build: ./signaling-server
+    container_name: y-webrtc-signaling
+    restart: unless-stopped
+    ports:
+      - "4444:4444"
+    environment:
+      - NODE_ENV=production
+      - PORT=4444
+      - HOST=0.0.0.0
+
   ui:
-    build: .
+    build:
+      context: .
+      args:
+        VITE_SIGNALING_URL: ws://localhost:4444
     container_name: webrtc-p2p-ui
     restart: unless-stopped
     ports:
       - "3000:80"
+    depends_on:
+      - signaling-server
