@@ -38,7 +38,8 @@ function initEditor(roomName) {
   console.log('Yjs document created')
 
   // Setup WebSocket provider (more reliable than  WebRTC for local network)
-  provider = new WebsocketProvider('ws://localhost:1234', roomName, ydoc)
+  const signalingUrl = import.meta.env.VITE_SIGNALING_URL || 'ws://localhost:1234'
+  provider = new WebsocketProvider(signalingUrl, roomName, ydoc)
 
   // Listen for custom peer count messages
   provider.ws.addEventListener('message', (event) => {
