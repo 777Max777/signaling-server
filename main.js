@@ -1,89 +1,185 @@
 import * as Y from 'yjs'
-import { WebrtcProvider } from 'y-webrtc'
-import { EditorView, basicSetup } from 'codemirror'
-import { EditorState } from '@codemirror/state'
-import { yCollab } from 'y-codemirror.next'
+import { WebsocketProvider } from 'y-websocket'
 
 let ydoc = null
 let provider = null
-let editorView = null
+let currentRoom = null
 
 // Generate random user color
 const userColor = '#' + Math.floor(Math.random()*16777215).toString(16)
 const userName = 'User-' + Math.random().toString(36).substr(2, 5)
 
 function initEditor(roomName) {
+  console.log('=== Initializing editor for room:', roomName)
+
+  // Don't reinitialize if already in the same room
+  if (currentRoom === roomName && provider) {
+    console.log('Already in room:', roomName)
+    return
+  }
+
   // Clean up previous instance
   if (provider) {
+    console.log('Destroying previous provider')
     provider.destroy()
   }
-  if (editorView) {
-    editorView.destroy()
+  if (ydoc) {
+    console.log('Destroying previous ydoc')
+    ydoc.destroy()
   }
+
+  currentRoom = roomName
 
   // Create Yjs document
   ydoc = new Y.Doc()
-  const ytext = ydoc.getText('codemirror')
+  const ytext = ydoc.getText('editor')
   const chatArray = ydoc.getArray('chat')
 
-  // Setup WebRTC provider
-  provider = new WebrtcProvider(roomName, ydoc, {
-    signaling: ['wss://signaling.yjs.dev'],
-    password: null,
-    awareness: {
-      name: userName,
-      color: userColor
+  console.log('Yjs document created')
+
+  // Setup WebSocket provider (more reliable than  WebRTC for local network)
+  provider = new WebsocketProvider('ws://localhost:1234', roomName, ydoc)
+
+  // Listen for custom peer count messages
+  provider.ws.addEventListener('message', (event) => {
+    try {
+      const data = JSON.parse(event.data)
+      if (data.type === 'peer-count') {
+        document.getElementById('peers').textContent = `Peers: ${data.count - 1}`
+        console.log('Peer count updated:', data.count - 1)
+      }
+    } catch (e) {
+      // Not a JSON message, ignore
     }
   })
+
+  console.log('WebSocket provider created')
+
+  // Log all provider events
+  console.log('Available provider events:', Object.keys(provider))
 
   // Update connection status
   provider.on('status', event => {
     const statusEl = document.getElementById('status')
-    if (event.connected) {
+    console.log('Status event:', event)
+    if (event.status === 'connected') {
       statusEl.textContent = 'Connected'
       statusEl.className = 'connected'
+      console.log('Connected to WebSocket server')
     } else {
       statusEl.textContent = 'Disconnected'
       statusEl.className = 'disconnected'
+      console.log('Disconnected from WebSocket server')
     }
   })
 
-  // Update peer count
-  provider.on('peers', event => {
-    document.getElementById('peers').textContent = `Peers: ${event.webrtcPeers.length}`
+  // WebsocketProvider peer count will be updated via custom messages
+  document.getElementById('peers').textContent = 'Peers: 0'
+
+  // Update on sync
+  provider.on('sync', (isSynced) => {
+    console.log('Provider synced:', isSynced)
   })
 
-  // Setup CodeMirror editor
-  const state = EditorState.create({
-    doc: ytext.toString(),
-    extensions: [
-      basicSetup,
-      yCollab(ytext, provider.awareness)
-    ]
+  // Setup simple textarea editor
+  const editorTextarea = document.getElementById('editor-textarea')
+  let isLocalChange = false
+
+  // Update textarea when ytext changes
+  ytext.observe(() => {
+    if (!isLocalChange) {
+      const newText = ytext.toString()
+      if (editorTextarea.value !== newText) {
+        const cursorPos = editorTextarea.selectionStart
+        editorTextarea.value = newText
+        editorTextarea.setSelectionRange(cursorPos, cursorPos)
+        console.log('Editor updated from remote')
+      }
+    }
   })
 
-  editorView = new EditorView({
-    state,
-    parent: document.getElementById('editor')
+  // Update ytext when textarea changes
+  editorTextarea.addEventListener('input', () => {
+    isLocalChange = true
+    const currentText = ytext.toString()
+    const newText = editorTextarea.value
+
+    if (newText !== currentText) {
+      ydoc.transact(() => {
+        ytext.delete(0, currentText.length)
+        ytext.insert(0, newText)
+      })
+      console.log('Editor updated locally')
+    }
+    isLocalChange = false
   })
+
+  // Set initial value
+  editorTextarea.value = ytext.toString()
 
   // Setup chat
   chatArray.observe(event => {
+    console.log('Chat array changed:', {
+      changes: event.changes,
+      transaction: event.transaction.origin,
+      arrayLength: chatArray.length
+    })
     renderChat(chatArray)
+  })
+
+  console.log('Initial chat array length:', chatArray.length)
+
+  // Log when document updates
+  ydoc.on('update', (update, origin) => {
+    console.log('Yjs document updated:', {
+      updateSize: update.length,
+      origin: origin,
+      chatLength: chatArray.length,
+      textLength: ytext.length
+    })
   })
 
   // Chat input handler
   const chatInput = document.getElementById('chat-input')
-  chatInput.onkeypress = (e) => {
-    if (e.key === 'Enter' && chatInput.value.trim()) {
-      chatArray.push([{
+  const sendBtn = document.getElementById('send-btn')
+
+  // Remove old listeners by cloning
+  const newChatInput = chatInput.cloneNode(true)
+  chatInput.parentNode.replaceChild(newChatInput, chatInput)
+
+  const newSendBtn = sendBtn.cloneNode(true)
+  sendBtn.parentNode.replaceChild(newSendBtn, sendBtn)
+
+  const sendMessage = () => {
+    const text = newChatInput.value.trim()
+    if (text) {
+      console.log('Sending message:', text)
+      const message = {
         author: userName,
-        text: chatInput.value,
+        text: text,
         time: Date.now()
-      }])
-      chatInput.value = ''
+      }
+      chatArray.push([message])
+      console.log('Chat array length:', chatArray.length)
+      newChatInput.value = ''
     }
   }
+
+  newChatInput.addEventListener('keypress', (e) => {
+    console.log('Key pressed:', e.key)
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      console.log('Enter pressed, sending message')
+      sendMessage()
+    }
+  })
+
+  newSendBtn.addEventListener('click', () => {
+    console.log('Send button clicked')
+    sendMessage()
+  })
+
+  console.log('Chat handlers attached')
 
   renderChat(chatArray)
 }
@@ -92,7 +188,10 @@ function renderChat(chatArray) {
   const chatMessages = document.getElementById('chat-messages')
   chatMessages.innerHTML = ''
 
-  chatArray.forEach(msg => {
+  console.log('Rendering chat, messages:', chatArray.length)
+
+  chatArray.forEach((msg, index) => {
+    console.log('Message', index, msg)
     const msgEl = document.createElement('div')
     msgEl.className = 'message'
     msgEl.innerHTML = `
@@ -106,10 +205,14 @@ function renderChat(chatArray) {
 }
 
 // Join room button
-document.getElementById('join-btn').onclick = () => {
-  const roomName = document.getElementById('room-input').value.trim() || 'default-room'
-  initEditor(roomName)
-}
+document.addEventListener('DOMContentLoaded', () => {
+  console.log('DOM loaded, setting up handlers')
 
-// Auto-join default room on load
-initEditor('default-room')
+  document.getElementById('join-btn').onclick = () => {
+    const roomName = document.getElementById('room-input').value.trim() || 'default-room'
+    initEditor(roomName)
+  }
+
+  // Auto-join default room on load
+  initEditor('default-room')
+})
