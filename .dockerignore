@@ -1,0 +1,9 @@
+node_modules
+dist
+.git
+.gitignore
+.idea
+sync-server
+README.md
+Dockerfile
+docker-compose.yml

@@ -37,8 +37,11 @@ function initEditor(roomName) {
 
   console.log('Yjs document created')
 
-  // Setup WebSocket provider (more reliable than  WebRTC for local network)
-  provider = new WebsocketProvider('ws://localhost:1234', roomName, ydoc)
+  // Connect to the y-websocket sync server (see sync-server/).
+  // Derive host from the page location so it works both on localhost and over LAN/Docker.
+  const wsProtocol = location.protocol === 'https:' ? 'wss' : 'ws'
+  const syncUrl = `${wsProtocol}://${location.hostname}:1234`
+  provider = new WebsocketProvider(syncUrl, roomName, ydoc)
 
   // Listen for custom peer count messages
   provider.ws.addEventListener('message', (event) => {

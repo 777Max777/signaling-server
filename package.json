@@ -1,7 +1,7 @@
 {
-  "name": "webrtc-p2p-collab",
+  "name": "yjs-collab-editor",
   "version": "1.0.0",
-  "description": "P2P collaborative editing and chat using WebRTC",
+  "description": "Collaborative text editing and chat using Yjs over y-websocket",
   "type": "module",
   "scripts": {
     "dev": "vite",

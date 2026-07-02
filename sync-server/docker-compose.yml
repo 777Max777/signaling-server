@@ -1,25 +1,23 @@
-version: '3.8'
-
 services:
-  signaling-server:
+  sync-server:
     build: .
-    container_name: y-webrtc-signaling
+    container_name: yjs-sync-server
     restart: unless-stopped
     ports:
-      - "4444:4444"
+      - "1234:1234"
     environment:
       - NODE_ENV=production
-      - PORT=4444
+      - PORT=1234
       - HOST=0.0.0.0
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:4444"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:1234"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 10s
     networks:
-      - webrtc-network
+      - sync-network
 
 networks:
-  webrtc-network:
+  sync-network:
     driver: bridge

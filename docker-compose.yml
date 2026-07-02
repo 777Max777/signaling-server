@@ -1,0 +1,20 @@
+services:
+  sync-server:
+    build: ./sync-server
+    container_name: yjs-sync-server
+    restart: unless-stopped
+    ports:
+      - "1234:1234"
+    environment:
+      - NODE_ENV=production
+      - PORT=1234
+      - HOST=0.0.0.0
+
+  client:
+    build: .
+    container_name: yjs-collab-client
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - sync-server
