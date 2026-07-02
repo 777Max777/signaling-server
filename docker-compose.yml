@@ -1,0 +1,9 @@
+version: '3.8'
+
+services:
+  ui:
+    build: .
+    container_name: webrtc-p2p-ui
+    restart: unless-stopped
+    ports:
+      - "3000:80"
